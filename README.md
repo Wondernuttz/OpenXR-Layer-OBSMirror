@@ -36,8 +36,8 @@ The OpenXR layer template was based on
 1. Open the [latest GitHub release](https://github.com/elliotttate/OpenXR-Layer-OBSMirror/releases/latest).
 2. Close OBS Studio and any running OpenXR application.
 3. Download and run the `OpenXR-OBSMirror-...-Setup.exe` installer.
-4. Open OBS Studio and add the source matching the application:
-   **OpenXR Mirror Capture** or **OpenVR / SteamVR Mirror Capture**.
+4. Open OBS Studio and add **VR Mirror Capture (Auto: OpenXR / SteamVR)**.
+   It selects the correct capture backend automatically.
 5. Start the VR application normally through your headset software.
 
 Setup installs the matching OBS source, registers the layer for the current
@@ -104,20 +104,23 @@ installs the plugin under OBS's Windows discovery path at
 
 ## Choosing a capture source
 
-- **OpenXR Mirror Capture** reads the application's image through this
-  project's OpenXR API layer. Use it for recording-only FOV overscan, camera
-  smoothing, and OpenXR quad-layer controls. Direct3D 11 and Direct3D 12
-  applications are supported.
+- **VR Mirror Capture (Auto: OpenXR / SteamVR)** is the recommended source. It
+  reads an OpenXR application's image through this project's API layer when one
+  is available, then automatically falls back to SteamVR's native compositor
+  mirror for OpenVR applications. Existing scenes saved with the older
+  **OpenXR Mirror Capture** name are upgraded in place because the source ID is
+  unchanged. Direct3D 11 and Direct3D 12 OpenXR applications are supported.
 - **OpenVR / SteamVR Mirror Capture** reads SteamVR's native compositor mirror
-  without injecting a legacy plugin into the application. It offers left,
+  directly and remains available as an explicit advanced source. It offers left,
   right, and side-by-side stereo modes, percentage crop controls, automatic
   recording-canvas fill, and reconnect-on-demand. SteamVR must be running.
 
-The OpenVR source loads the official Valve OpenVR API from the plugin folder
-only when that source is active. If it is unavailable, the OpenXR source still
-loads and works normally. OpenXR overscan, smoothing, and quad-layer controls
+The automatic source loads the official Valve OpenVR API from the plugin folder
+only when SteamVR is already running and no OpenXR mirror is available. It does
+not launch SteamVR or change the active OpenXR runtime. OpenXR overscan,
+smoothing, and quad-layer controls
 cannot modify an already-composited SteamVR mirror, so those controls apply only
-to **OpenXR Mirror Capture**.
+while the automatic source is using its OpenXR backend.
 
 ## Control Center
 

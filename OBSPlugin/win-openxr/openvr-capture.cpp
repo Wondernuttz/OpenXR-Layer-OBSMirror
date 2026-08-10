@@ -4,6 +4,7 @@
 #include <d3d11.h>
 #include <dxgi.h>
 #include <openvr.h>
+#include <tlhelp32.h>
 #include <winrt/base.h>
 
 #include <algorithm>
@@ -29,6 +30,26 @@ namespace {
     using VrGetErrorDescription = const char*(VR_CALLTYPE*)(vr::EVRInitError);
 
     extern "C" IMAGE_DOS_HEADER __ImageBase;
+
+    bool steamvr_is_running() {
+        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if (snapshot == INVALID_HANDLE_VALUE)
+            return false;
+
+        PROCESSENTRY32W entry{};
+        entry.dwSize = sizeof(entry);
+        bool found = false;
+        if (Process32FirstW(snapshot, &entry)) {
+            do {
+                if (_wcsicmp(entry.szExeFile, L"vrserver.exe") == 0) {
+                    found = true;
+                    break;
+                }
+            } while (Process32NextW(snapshot, &entry));
+        }
+        CloseHandle(snapshot);
+        return found;
+    }
 
     std::wstring sibling_openvr_dll_path() {
         std::array<wchar_t, 32768> module_path{};
@@ -371,6 +392,19 @@ namespace {
         deinitialize(context);
         context->last_init_attempt = now;
 
+        // VR_Init can launch SteamVR. An automatic fallback must never start
+        // or switch runtimes while a native OpenXR application is in use, so
+        // only attach after SteamVR's server is already running.
+        if (!steamvr_is_running()) {
+            if (context->last_error_log == 0 || now - context->last_error_log >= 30000) {
+                openvr_blog(LOG_INFO,
+                            "[%s] SteamVR is not running; native OpenVR fallback is idle",
+                            obs_source_get_name(context->source));
+                context->last_error_log = now;
+            }
+            return false;
+        }
+
         std::string failure;
         D3D11_TEXTURE2D_DESC first_desc{};
         D3D11_TEXTURE2D_DESC second_desc{};
@@ -479,24 +513,13 @@ namespace {
 
     void update(void* data, obs_data_t* settings) {
         auto* context = static_cast<OpenVrCapture*>(data);
-        const int eye = std::clamp(static_cast<int>(obs_data_get_int(settings, "openvr_eye")), 0, 2);
-        Crop crop{};
-        crop.top = std::clamp(obs_data_get_double(settings, "openvr_crop_top"), 0.0, 100.0);
-        crop.bottom = std::clamp(obs_data_get_double(settings, "openvr_crop_bottom"), 0.0, 100.0);
-        crop.left = std::clamp(obs_data_get_double(settings, "openvr_crop_left"), 0.0, 100.0);
-        crop.right = std::clamp(obs_data_get_double(settings, "openvr_crop_right"), 0.0, 100.0);
-        const bool fill_canvas = obs_data_get_bool(settings, "openvr_fill_canvas");
-        const bool changed = eye != context->eye || fill_canvas != context->fill_canvas ||
-                             crop.top != context->crop.top || crop.bottom != context->crop.bottom ||
-                             crop.left != context->crop.left || crop.right != context->crop.right;
-        context->eye = eye;
-        context->crop = crop;
-        context->fill_canvas = fill_canvas;
-        if (changed && context->initialized) {
-            deinitialize(context);
-            if (context->active)
-                initialize(context, true);
-        }
+        openvr_capture_configure(reinterpret_cast<openvr_capture_handle*>(context),
+                                 static_cast<int>(obs_data_get_int(settings, "openvr_eye")),
+                                 obs_data_get_bool(settings, "openvr_fill_canvas"),
+                                 obs_data_get_double(settings, "openvr_crop_top"),
+                                 obs_data_get_double(settings, "openvr_crop_right"),
+                                 obs_data_get_double(settings, "openvr_crop_bottom"),
+                                 obs_data_get_double(settings, "openvr_crop_left"));
     }
 
     void defaults(obs_data_t* settings) {
@@ -509,42 +532,38 @@ namespace {
     }
 
     void show(void* data) {
-        auto* context = static_cast<OpenVrCapture*>(data);
-        context->active = true;
-        initialize(context, true);
+        openvr_capture_show(reinterpret_cast<openvr_capture_handle*>(data));
     }
 
     void hide(void* data) {
-        auto* context = static_cast<OpenVrCapture*>(data);
-        context->active = false;
-        deinitialize(context);
+        openvr_capture_hide(reinterpret_cast<openvr_capture_handle*>(data));
     }
 
     void* create(obs_data_t* settings, obs_source_t* source) {
-        auto* context = new (std::nothrow) OpenVrCapture{};
+        auto* context = openvr_capture_create(source);
         if (!context)
             return nullptr;
-        context->source = source;
         update(context, settings);
         return context;
     }
 
     void destroy(void* data) {
-        auto* context = static_cast<OpenVrCapture*>(data);
-        deinitialize(context);
-        delete context;
+        openvr_capture_destroy(reinterpret_cast<openvr_capture_handle*>(data));
     }
 
     uint32_t get_width(void* data) {
-        return static_cast<OpenVrCapture*>(data)->output_width;
+        return openvr_capture_width(reinterpret_cast<openvr_capture_handle*>(data));
     }
 
     uint32_t get_height(void* data) {
-        return static_cast<OpenVrCapture*>(data)->output_height;
+        return openvr_capture_height(reinterpret_cast<openvr_capture_handle*>(data));
     }
 
     void render(void* data, gs_effect_t*) {
-        auto* context = static_cast<OpenVrCapture*>(data);
+        openvr_capture_render(reinterpret_cast<openvr_capture_handle*>(data), nullptr);
+    }
+
+    void render_capture(OpenVrCapture* context) {
         if (!context->active && obs_source_active(context->source))
             context->active = true;
         if (!context->initialized) {
@@ -592,7 +611,10 @@ namespace {
     }
 
     void tick(void* data, float) {
-        auto* context = static_cast<OpenVrCapture*>(data);
+        openvr_capture_tick(reinterpret_cast<openvr_capture_handle*>(data), 0.0f);
+    }
+
+    void tick_capture(OpenVrCapture* context) {
         const bool active = obs_source_active(context->source);
         if (!active && context->active) {
             context->active = false;
@@ -647,6 +669,102 @@ namespace {
     }
 
 } // namespace
+
+openvr_capture_handle *openvr_capture_create(obs_source_t *source)
+{
+    auto *context = new (std::nothrow) OpenVrCapture{};
+    if (!context)
+        return nullptr;
+    context->source = source;
+    return reinterpret_cast<openvr_capture_handle *>(context);
+}
+
+void openvr_capture_destroy(openvr_capture_handle *capture)
+{
+    auto *context = reinterpret_cast<OpenVrCapture *>(capture);
+    if (!context)
+        return;
+    deinitialize(context);
+    delete context;
+}
+
+void openvr_capture_configure(openvr_capture_handle *capture, int eye,
+                              bool fill_canvas, double crop_top,
+                              double crop_right, double crop_bottom,
+                              double crop_left)
+{
+    auto *context = reinterpret_cast<OpenVrCapture *>(capture);
+    if (!context)
+        return;
+
+    Crop crop{};
+    crop.top = std::clamp(crop_top, 0.0, 100.0);
+    crop.right = std::clamp(crop_right, 0.0, 100.0);
+    crop.bottom = std::clamp(crop_bottom, 0.0, 100.0);
+    crop.left = std::clamp(crop_left, 0.0, 100.0);
+    eye = std::clamp(eye, 0, 2);
+    const bool changed = eye != context->eye || fill_canvas != context->fill_canvas ||
+                         crop.top != context->crop.top || crop.right != context->crop.right ||
+                         crop.bottom != context->crop.bottom || crop.left != context->crop.left;
+    context->eye = eye;
+    context->crop = crop;
+    context->fill_canvas = fill_canvas;
+    if (changed && context->initialized) {
+        deinitialize(context);
+        if (context->active)
+            initialize(context, true);
+    }
+}
+
+void openvr_capture_show(openvr_capture_handle *capture)
+{
+    auto *context = reinterpret_cast<OpenVrCapture *>(capture);
+    if (!context)
+        return;
+    context->active = true;
+    initialize(context, true);
+}
+
+void openvr_capture_hide(openvr_capture_handle *capture)
+{
+    auto *context = reinterpret_cast<OpenVrCapture *>(capture);
+    if (!context)
+        return;
+    context->active = false;
+    deinitialize(context);
+}
+
+void openvr_capture_tick(openvr_capture_handle *capture, float)
+{
+    auto *context = reinterpret_cast<OpenVrCapture *>(capture);
+    if (context)
+        tick_capture(context);
+}
+
+void openvr_capture_render(openvr_capture_handle *capture, gs_effect_t *)
+{
+    auto *context = reinterpret_cast<OpenVrCapture *>(capture);
+    if (context)
+        render_capture(context);
+}
+
+uint32_t openvr_capture_width(const openvr_capture_handle *capture)
+{
+    const auto *context = reinterpret_cast<const OpenVrCapture *>(capture);
+    return context ? context->output_width : 100;
+}
+
+uint32_t openvr_capture_height(const openvr_capture_handle *capture)
+{
+    const auto *context = reinterpret_cast<const OpenVrCapture *>(capture);
+    return context ? context->output_height : 100;
+}
+
+bool openvr_capture_ready(const openvr_capture_handle *capture)
+{
+    const auto *context = reinterpret_cast<const OpenVrCapture *>(capture);
+    return context && context->initialized && context->obs_texture;
+}
 
 void register_openvr_capture_source() {
     obs_source_info info{};

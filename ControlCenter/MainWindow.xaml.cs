@@ -299,33 +299,52 @@ public sealed partial class MainWindow : Window
                 "reports as current. Removing the old copy leaves the installed source in place.";
         }
 
-        // Only openxr_loader.dll inserts API layers, so a title that reaches the
-        // headset through LibOVR or OpenVR cannot be captured at all. Without
-        // this the dashboard just waits forever and reports nothing wrong.
-        var showNonOpenXrVrWarning = !string.IsNullOrWhiteSpace(snapshot.NonOpenXrVrApp) &&
-                                     _lastPreviewResult?.Connected != true;
-        NonOpenXrVrInfoBar.IsOpen = showNonOpenXrVrWarning;
-        if (showNonOpenXrVrWarning)
+        // The automatic OBS source has a native SteamVR fallback. Other legacy
+        // VR APIs still cannot be intercepted by an OpenXR API layer.
+        var showNonOpenXrVrStatus = !string.IsNullOrWhiteSpace(snapshot.NonOpenXrVrApp) &&
+                                    _lastPreviewResult?.Connected != true;
+        var isOpenVrCapture = snapshot.NonOpenXrVrPath.Equals(
+            "OpenVR/SteamVR", StringComparison.OrdinalIgnoreCase);
+        NonOpenXrVrInfoBar.IsOpen = showNonOpenXrVrStatus;
+        if (showNonOpenXrVrStatus && isOpenVrCapture)
         {
+            NonOpenXrVrInfoBar.Severity = InfoBarSeverity.Success;
+            NonOpenXrVrInfoBar.Title = "SteamVR capture is available";
+            NonOpenXrVrInfoBar.Message =
+                "The automatic OBS source will use SteamVR's native compositor mirror. " +
+                "OpenXR layer controls do not apply to this capture.";
+        }
+        else if (showNonOpenXrVrStatus)
+        {
+            NonOpenXrVrInfoBar.Severity = InfoBarSeverity.Warning;
+            NonOpenXrVrInfoBar.Title = "This VR API is not capturable yet";
             NonOpenXrVrInfoBar.Message =
                 $"{snapshot.NonOpenXrVrApp} is running VR through the {snapshot.NonOpenXrVrPath} path, not OpenXR. " +
-                "The capture layer can only attach to OpenXR applications — switch the VR mod or game to the " +
-                "OpenXR runtime, then start it again.";
+                "Switch the application to OpenXR or OpenVR/SteamVR, then start it again.";
         }
 
         var runtimeConfigured = !snapshot.RuntimeName.Equals("Not configured", StringComparison.OrdinalIgnoreCase);
-        var runtimeOkay = runtimeConfigured && !snapshot.SimulatorRuntimeOverrideActive;
+        var runtimeIsSimulator = snapshot.SimulatorRuntimeOverrideActive ||
+                                 snapshot.RuntimeName.Contains("Simulator", StringComparison.OrdinalIgnoreCase) ||
+                                 snapshot.RuntimePath.Contains("simulator", StringComparison.OrdinalIgnoreCase);
+        var runtimeOkay = runtimeConfigured && !runtimeIsSimulator;
         SetStatus(RuntimeDot, RuntimeStatusText, runtimeOkay,
-            snapshot.SimulatorRuntimeOverrideActive ? "Simulator override" : snapshot.RuntimeName);
-        RuntimeDetailText.Text = snapshot.SimulatorRuntimeOverrideActive
-            ? $"Restore {snapshot.SystemRuntimeName} for a headset"
+            runtimeIsSimulator ? "Simulator selected" : snapshot.RuntimeName);
+        RuntimeDetailText.Text = runtimeIsSimulator
+            ? snapshot.SimulatorRuntimeOverrideActive
+                ? $"Restore {snapshot.SystemRuntimeName} for a headset"
+                : "Select your headset runtime in its desktop software"
             : snapshot.RuntimeSource;
 
-        if (snapshot.SimulatorRuntimeOverrideActive)
+        if (runtimeIsSimulator)
         {
             RuntimeModeInfoBar.Severity = InfoBarSeverity.Warning;
-            RuntimeModeInfoBar.Title = "Simulator override is active";
-            RuntimeModeInfoBar.Message = $"OpenXR applications will bypass the normal headset runtime. Use headset runtime restores {snapshot.SystemRuntimeName} and clears the per-user override.";
+            RuntimeModeInfoBar.Title = snapshot.SimulatorRuntimeOverrideActive
+                ? "Simulator override is active"
+                : "Simulator is the system OpenXR runtime";
+            RuntimeModeInfoBar.Message = snapshot.SimulatorRuntimeOverrideActive
+                ? $"OpenXR applications will bypass the normal headset runtime. Use headset runtime restores {snapshot.SystemRuntimeName} and clears the per-user override."
+                : "The app did not select this runtime. Choose 'Set as active OpenXR runtime' in your headset or SteamVR software before starting an OpenXR application.";
         }
         else if (!runtimeConfigured)
         {
@@ -713,6 +732,18 @@ public sealed partial class MainWindow : Window
 
     private void RenderMirrorPreview(MirrorPreviewResult result)
     {
+        if (result.Frame is null &&
+            _snapshot?.NonOpenXrVrPath.Equals("OpenVR/SteamVR", StringComparison.OrdinalIgnoreCase) == true &&
+            !string.IsNullOrWhiteSpace(_snapshot.NonOpenXrVrApp))
+        {
+            result = new MirrorPreviewResult(
+                null,
+                "SteamVR capture is ready in OBS",
+                "Open OBS to view the running OpenVR/SteamVR application. This in-app preview reads the OpenXR layer only.",
+                false,
+                false);
+        }
+
         _lastPreviewResult = result;
         UpdateVrRestartIndicator();
         PreviewStatusText.Text = result.Status;
@@ -1212,6 +1243,18 @@ public sealed partial class MainWindow : Window
     {
         try
         {
+            var systemRuntimeIsSimulator = _snapshot is not null &&
+                (_snapshot.SystemRuntimeName.Contains("Simulator", StringComparison.OrdinalIgnoreCase) ||
+                 _snapshot.SystemRuntimePath.Contains("simulator", StringComparison.OrdinalIgnoreCase));
+            if (_snapshot?.RuntimeOverrideActive != true && systemRuntimeIsSimulator)
+            {
+                ShowMessage(
+                    "Select a headset runtime first",
+                    "The system runtime itself is currently the simulator, so there is no headset runtime for this button to restore. Open your headset or SteamVR desktop software and choose 'Set as active OpenXR runtime'.",
+                    InfoBarSeverity.Warning);
+                return;
+            }
+
             var systemRuntimeName = _snapshot?.SystemRuntimeName ?? "the system OpenXR runtime";
             var runtimeChanged = _snapshot?.RuntimeOverrideActive == true ||
                                  _snapshot?.SimulatorRuntimeOverrideActive == true;

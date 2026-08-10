@@ -64,7 +64,7 @@ using obs_mirror_ipc::kMirrorTextureCount;
 
 // Logged at load and published through the shared diagnostics block so the
 // layer log records which plugin build it talked to.
-static const char *const kPluginVersion = "0.3.0-beta.12";
+static const char *const kPluginVersion = "0.3.0-beta.13";
 
 struct win_openxrmirror {
 	obs_source_t *source;
@@ -135,7 +135,41 @@ struct win_openxrmirror {
 	bool initialized;
 	bool active;
 
+	// The legacy source ID remains the scene-compatible automatic source.
+	// Prefer the layer's OpenXR surface, but use SteamVR's compositor mirror
+	// when an active application is running through OpenVR instead.
+	openvr_capture_handle *openvr_fallback = nullptr;
+	bool openvr_fallback_active = false;
+	bool openvr_fallback_reported = false;
+
 };
+
+static void set_openvr_fallback(win_openxrmirror *context, bool enabled)
+{
+	if (!context->openvr_fallback)
+		return;
+
+	if (enabled && !context->openvr_fallback_active) {
+		context->openvr_fallback_active = true;
+		openvr_capture_show(context->openvr_fallback);
+	} else if (!enabled && context->openvr_fallback_active) {
+		if (context->openvr_fallback_reported && context->initialized)
+			info("OpenXR mirror surface connected; switching back from the SteamVR fallback");
+		openvr_capture_hide(context->openvr_fallback);
+		context->openvr_fallback_active = false;
+		context->openvr_fallback_reported = false;
+	}
+}
+
+static void report_openvr_fallback_if_ready(win_openxrmirror *context)
+{
+	if (context->openvr_fallback_active &&
+	    !context->openvr_fallback_reported &&
+	    openvr_capture_ready(context->openvr_fallback)) {
+		info("OpenXR mirror surface is unavailable; capturing the native SteamVR/OpenVR compositor automatically");
+		context->openvr_fallback_reported = true;
+	}
+}
 
 static void publish_smoothing(win_openxrmirror *context)
 {
@@ -668,6 +702,9 @@ static void win_openxrmirror_update(void *data, obs_data_t *settings)
 	context->captureeye = captureeye;
 	context->crop = newCrop;
 	context->fill_canvas = fillCanvas;
+	openvr_capture_configure(context->openvr_fallback, captureeye,
+				 fillCanvas, newCrop.top, newCrop.right,
+				 newCrop.bottom, newCrop.left);
 
 	context->overlap = static_cast<float>(
 		std::clamp(obs_data_get_double(settings, "eyeoverlap"), 0.0, 100.0));
@@ -717,23 +754,33 @@ static void win_openxrmirror_defaults(obs_data_t *settings)
 static uint32_t win_openxrmirror_getwidth(void *data)
 {
 	struct win_openxrmirror *context = (win_openxrmirror *)data;
+	if (!context->initialized &&
+	    openvr_capture_ready(context->openvr_fallback))
+		return openvr_capture_width(context->openvr_fallback);
 	return context->width;
 }
 
 static uint32_t win_openxrmirror_getheight(void *data)
 {
 	struct win_openxrmirror *context = (win_openxrmirror *)data;
+	if (!context->initialized &&
+	    openvr_capture_ready(context->openvr_fallback))
+		return openvr_capture_height(context->openvr_fallback);
 	return context->height;
 }
 
 static void win_openxrmirror_show(void *data)
 {
+	struct win_openxrmirror *context = (win_openxrmirror *)data;
 	win_openxrmirror_init(data,
 		true); // When showing do forced init without delay
+	set_openvr_fallback(context, !context->initialized);
 }
 
 static void win_openxrmirror_hide(void *data)
 {
+	struct win_openxrmirror *context = (win_openxrmirror *)data;
+	set_openvr_fallback(context, false);
 	win_openxrmirror_deinit(data);
 }
 
@@ -744,6 +791,11 @@ static void *win_openxrmirror_create(obs_data_t *settings, obs_source_t *source)
 	if (!context)
 		return nullptr;
 	context->source = source;
+	context->openvr_fallback = openvr_capture_create(source);
+	if (!context->openvr_fallback) {
+		delete context;
+		return nullptr;
+	}
 
 	context->initialized = false;
 
@@ -763,6 +815,9 @@ static void win_openxrmirror_destroy(void *data)
 {
 	struct win_openxrmirror *context = (win_openxrmirror *)data;
 
+	set_openvr_fallback(context, false);
+	openvr_capture_destroy(context->openvr_fallback);
+	context->openvr_fallback = nullptr;
 	win_openxrmirror_deinit(data);
 	delete context;
 }
@@ -797,6 +852,17 @@ static void win_openxrmirror_render(void *data, gs_effect_t *effect)
 		// Active & want to render but not initialized - attempt to init
 		win_openxrmirror_init(data);
 	}
+
+	if (!context->initialized) {
+		set_openvr_fallback(context, context->active);
+		if (context->active) {
+			openvr_capture_render(context->openvr_fallback, effect);
+			report_openvr_fallback_if_ready(context);
+		}
+		return;
+	}
+
+	set_openvr_fallback(context, false);
 
 	if (!context->texture || !context->active ||
 	    context->mirror_textures.size() != kMirrorTextureCount) {
@@ -841,6 +907,15 @@ static void win_openxrmirror_tick(void *data, float seconds)
 
 	context->active = obs_source_active(context->source);
 	refresh_app_smoothing(context);
+	if (!context->active) {
+		set_openvr_fallback(context, false);
+	} else if (!context->initialized) {
+		set_openvr_fallback(context, true);
+		openvr_capture_tick(context->openvr_fallback, seconds);
+		report_openvr_fallback_if_ready(context);
+	} else {
+		set_openvr_fallback(context, false);
+	}
 
 	// Heartbeat: tells the layer the plugin is alive even on frames where
 	// the source itself is not rendered.
