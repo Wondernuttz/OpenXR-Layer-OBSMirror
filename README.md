@@ -15,7 +15,7 @@ Key recording controls include:
 - recording-only FOV overscan with an unchanged headset center crop;
 - live camera smoothing and crop margin;
 - independent show/hide control for OpenXR composition quad layers;
-- an in-app preview of the layer's shared mirror image;
+- an in-app preview that follows either OpenXR or OpenVR/SteamVR capture;
 - live runtime, layer, plugin, hash, and diagnostic-log status.
 - native SteamVR/OpenVR left-eye, right-eye, or stereo mirror capture.
 
@@ -126,7 +126,7 @@ while the automatic source is using its OpenXR backend.
 
 The dark WinUI 3 Control Center provides one place to inspect layer, plugin,
 runtime, and OBS status; install or update both components; register the layer;
-preview the shared mirror image; configure recording overscan; control camera
+preview the active OpenXR or OpenVR mirror image; configure recording overscan; control camera
 smoothing; show or hide OpenXR quad-layer UI in the recording; and read live logs.
 It is headset-first: the dashboard shows the effective runtime, warns when a
 simulator override is active, and provides **Use headset runtime** to clear
@@ -151,8 +151,10 @@ Run `bin\x64\Release\ControlCenter\OBSMirror.ControlCenter.exe`. Overscan
 changes apply when the OpenXR application next starts. Camera-smoothing changes
 are picked up live by an active OBS Mirror source. Quad-layer visibility is
 picked up live by the updated OpenXR layer after it has been loaded once. The
-Dashboard preview connects directly to the same shared image used by OBS and
-pauses when another Control Center page is selected.
+Dashboard preview connects directly to the active OpenXR shared image or
+SteamVR compositor mirror used by OBS and pauses when another Control Center
+page is selected. Opening Control Center never starts SteamVR or changes the
+active OpenXR runtime.
 
 ## Runtime notes
 

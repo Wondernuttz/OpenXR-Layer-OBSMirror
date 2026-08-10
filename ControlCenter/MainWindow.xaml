@@ -237,9 +237,9 @@
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Spacing="2" VerticalAlignment="Center">
                                                 <TextBlock Text="LIVE MIRROR PREVIEW" Style="{StaticResource EyebrowStyle}" />
-                                                <TextBlock x:Name="PreviewStatusText" Text="Waiting for an OpenXR app" FontSize="18" FontWeight="SemiBold" />
+                                                <TextBlock x:Name="PreviewStatusText" Text="Waiting for a VR app" FontSize="18" FontWeight="SemiBold" />
                                                 <TextBlock x:Name="PreviewDetailText"
-                                                           Text="Start a VR app after enabling the OpenXR layer."
+                                                           Text="Start an OpenXR or OpenVR app; the preview connects automatically."
                                                            Style="{StaticResource MutedTextStyle}" FontSize="11"
                                                            MaxLines="1" TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
@@ -267,7 +267,7 @@
                                                     <TextBlock x:Name="PreviewPlaceholderTitle" Text="No mirror image yet"
                                                                FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center" />
                                                     <TextBlock x:Name="PreviewPlaceholderDetail"
-                                                               Text="The preview connects automatically when an OpenXR app publishes a frame."
+                                                               Text="The preview connects automatically to OpenXR or OpenVR capture."
                                                                Style="{StaticResource MutedTextStyle}" FontSize="11" TextAlignment="Center" TextWrapping="Wrap" />
                                                 </StackPanel>
                                             </Grid>

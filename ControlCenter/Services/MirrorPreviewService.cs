@@ -39,6 +39,7 @@ public sealed record MirrorProducerIdentity(
 /// </summary>
 public sealed class MirrorPreviewService : IDisposable
 {
+    private readonly OpenVrPreviewService _openVrPreview = new();
     private const string SharedMemoryName = "OpenXROBSMirrorSurface";
     // Layout constants mirror shared/obs_mirror_ipc.h; static_asserts there pin
     // every offset used here. The section is page-granular, so mapping a full
@@ -157,6 +158,11 @@ public sealed class MirrorPreviewService : IDisposable
                     "Reopen the app to start the mirror preview again.");
 
             if (!EnsureSurface(out var mappingError))
+            {
+                var openVrResult = _openVrPreview.CaptureFrame();
+                if (OpenVrPreviewService.IsRuntimeRunning())
+                    return openVrResult;
+
                 return DiagnosticWaiting(
                     mappingError.Contains("Start a VR app", StringComparison.OrdinalIgnoreCase)
                         ? "no-shared-surface"
@@ -164,6 +170,7 @@ public sealed class MirrorPreviewService : IDisposable
                     "Waiting for an OpenXR app",
                     mappingError,
                     warning: !mappingError.Contains("Start a VR app", StringComparison.OrdinalIgnoreCase));
+            }
 
             try
             {
@@ -1137,6 +1144,7 @@ public sealed class MirrorPreviewService : IDisposable
                 return;
             _disposed = true;
             ResetSurface();
+            _openVrPreview.Dispose();
         }
     }
 }

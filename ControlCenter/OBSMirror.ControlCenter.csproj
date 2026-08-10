@@ -17,13 +17,14 @@
     <RootNamespace>OBSMirror.ControlCenter</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\OBSMirror.ControlCenter.ico</ApplicationIcon>
-    <Version>0.3.0-beta.13</Version>
-    <AssemblyVersion>0.3.0.13</AssemblyVersion>
-    <FileVersion>0.3.0.13</FileVersion>
-    <InformationalVersion>0.3.0-beta.13</InformationalVersion>
+    <Version>0.3.0-beta.14</Version>
+    <AssemblyVersion>0.3.0.14</AssemblyVersion>
+    <FileVersion>0.3.0.14</FileVersion>
+    <InformationalVersion>0.3.0-beta.14</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\external\OpenVR\headers\openvr_api.cs" Link="External\OpenVR\openvr_api.cs" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260508005" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.1839" />
     <PackageReference Include="Vortice.D3DCompiler" Version="3.6.2" />
@@ -34,6 +35,10 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
     <Content Include="Assets\OBSMirror.ControlCenter.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="..\external\OpenVR\bin\win64\openvr_api.dll" Link="openvr_api.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>

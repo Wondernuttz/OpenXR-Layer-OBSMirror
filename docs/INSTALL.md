@@ -46,8 +46,9 @@ layer, OBS source, scripts, and app runtime.
   margin update live.
 - **UI layers** can include or omit separately submitted OpenXR quad layers in
   the recording without changing the headset.
-- **Dashboard preview** shows the layer's shared mirror image in the Control
-  Center without requiring OBS to be open.
+- **Dashboard preview** shows the active OpenXR shared image or native SteamVR
+  compositor mirror in Control Center without requiring OBS to be open. It only
+  attaches to SteamVR when SteamVR is already running.
 
 These recording-only controls belong to the OpenXR layer and therefore apply
 only while the automatic source is using OpenXR. Its OpenVR backend receives an already
@@ -100,7 +101,8 @@ registration; both switches always show the same live state.
   This distinguishes an idle producer from advancing all-black frames and from a
   consumer-side display problem. The local log is
   `%LOCALAPPDATA%\OpenXR-OBSMirror\ControlCenter-preview.log`.
-- If no surface or frame is available, start or resume the OpenXR application.
+- If no surface or frame is available, start or resume an OpenXR or OpenVR
+  application.
   If frames and visible pixels are reported but only OBS is black, reopen the OBS
   source properties and compare the OBS and producer adapter identities in the
   uploaded report.
