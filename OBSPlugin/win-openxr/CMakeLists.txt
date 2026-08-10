@@ -22,15 +22,34 @@ if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 endif()
 
 set(win-openxr_SOURCES
-	win-openxr.cpp)
+	win-openxr.cpp
+	openvr-capture.cpp
+	openvr-capture.h)
+
+set(OPENVR_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../external/OpenVR" CACHE PATH
+	"Path to the official Valve OpenVR SDK")
+if(NOT EXISTS "${OPENVR_ROOT}/headers/openvr.h")
+	message(FATAL_ERROR
+		"OpenVR SDK header not found at ${OPENVR_ROOT}/headers/openvr.h. Initialize external/OpenVR.")
+endif()
+set(OPENVR_RUNTIME "${OPENVR_ROOT}/bin/win64/openvr_api.dll")
+if(NOT EXISTS "${OPENVR_RUNTIME}")
+	message(FATAL_ERROR
+		"OpenVR runtime library not found at ${OPENVR_RUNTIME}. Initialize external/OpenVR.")
+endif()
 
 add_library(win-openxr MODULE
 	${win-openxr_SOURCES})
 target_compile_features(win-openxr PRIVATE cxx_std_17)
 target_include_directories(win-openxr PRIVATE
-	${CMAKE_CURRENT_SOURCE_DIR}/../../shared)
+	${CMAKE_CURRENT_SOURCE_DIR}/../../shared
+	${OPENVR_ROOT}/headers)
 target_link_libraries(win-openxr
 	libobs)
+add_custom_command(TARGET win-openxr POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${OPENVR_RUNTIME}" "$<TARGET_FILE_DIR:win-openxr>/openvr_api.dll"
+	COMMENT "Copying the optional OpenVR runtime beside the OBS plugin")
 
 if(MSVC)
 	# Keep the installed-binary hash stable across no-op rebuilds so the

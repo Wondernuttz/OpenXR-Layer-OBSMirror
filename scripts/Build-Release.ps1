@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '0.3.0-beta.11',
-    [string]$FileVersion = '0.3.0.11',
+    [string]$Version = '0.3.0-beta.12',
+    [string]$FileVersion = '0.3.0.12',
     [string]$OBSSourcePath = 'E:\Github\obs-studio',
     [string]$OBSInstallPath = 'C:\Program Files\obs-studio'
 )
@@ -76,6 +76,8 @@ foreach ($fileName in @(
 }
 Copy-Item -LiteralPath (Join-Path $releaseBin 'OBS_Plugin\win-openxr.dll') `
     -Destination (Join-Path $payloadRoot 'bin\x64\Release\OBS_Plugin') -Force
+Copy-Item -LiteralPath (Join-Path $releaseBin 'OBS_Plugin\openvr_api.dll') `
+    -Destination (Join-Path $payloadRoot 'bin\x64\Release\OBS_Plugin') -Force
 
 foreach ($scriptName in @(
     'Setup-OBS.ps1',
@@ -104,6 +106,7 @@ $metadata = [ordered]@{
     tag = $tag
     platform = 'Windows x64'
     obs_version = (Get-Item -LiteralPath (Join-Path $OBSInstallPath 'bin\64bit\obs64.exe')).VersionInfo.ProductVersion
+    runtime_apis = @('OpenXR', 'OpenVR / SteamVR')
     graphics_apis = @('Direct3D 11', 'Direct3D 12')
 }
 $metadata | ConvertTo-Json -Depth 4 | Set-Content `

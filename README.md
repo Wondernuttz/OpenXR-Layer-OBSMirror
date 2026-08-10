@@ -1,13 +1,14 @@
-# OpenXR OBS Mirror
+# OpenXR + OpenVR OBS Mirror
 
-**Capture the application-rendered OpenXR view directly in OBS Studio, with a
-wider, steadier recording camera while the headset continues to look and track
-normally.**
+**Capture native OpenXR applications or the SteamVR/OpenVR compositor directly
+in OBS Studio. OpenXR capture can also use a wider, steadier recording camera
+while the headset continues to look and track normally.**
 
-OpenXR OBS Mirror combines a native OpenXR API layer, an OBS source, and a
-self-contained dark WinUI 3 Control Center. It supports Direct3D 11 and
-Direct3D 12 OpenXR applications on Windows x64 and keeps the machine's normal
-headset runtime as the default.
+OpenXR OBS Mirror combines a native OpenXR API layer, native OpenXR and OpenVR
+OBS sources, and a self-contained dark WinUI 3 Control Center. It supports
+Direct3D 11 and Direct3D 12 OpenXR applications plus SteamVR/OpenVR compositor
+capture on Windows x64, while keeping the machine's normal headset runtime as
+the default.
 
 Key recording controls include:
 
@@ -16,12 +17,13 @@ Key recording controls include:
 - independent show/hide control for OpenXR composition quad layers;
 - an in-app preview of the layer's shared mirror image;
 - live runtime, layer, plugin, hash, and diagnostic-log status.
+- native SteamVR/OpenVR left-eye, right-eye, or stereo mirror capture.
 
 ## See it in action
 
 | Wider FOV + smoothed camera | Control Center walkthrough |
 | :---: | :---: |
-| [![Halo Large FOV Smoothed Footage](https://img.youtube.com/vi/0Aa91IXBh3c/maxresdefault.jpg)](https://youtu.be/0Aa91IXBh3c) | [![OBS OpenXR Recording UI](https://img.youtube.com/vi/0CDRNip2I10/maxresdefault.jpg)](https://www.youtube.com/watch?v=0CDRNip2I10) |
+| [![Wider FOV and smoothed VR footage](https://img.youtube.com/vi/0Aa91IXBh3c/maxresdefault.jpg)](https://youtu.be/0Aa91IXBh3c) | [![OBS OpenXR recording UI](https://img.youtube.com/vi/0CDRNip2I10/maxresdefault.jpg)](https://www.youtube.com/watch?v=0CDRNip2I10) |
 | Recording-only FOV overscan and camera smoothing in action. | A guided tour of installation, status, and recording controls. |
 
 Click either preview to watch on YouTube.
@@ -34,8 +36,9 @@ The OpenXR layer template was based on
 1. Open the [latest GitHub release](https://github.com/elliotttate/OpenXR-Layer-OBSMirror/releases/latest).
 2. Close OBS Studio and any running OpenXR application.
 3. Download and run the `OpenXR-OBSMirror-...-Setup.exe` installer.
-4. Open OBS Studio, add an **OpenXR Mirror Capture** source, and start the
-   OpenXR application normally through your headset software.
+4. Open OBS Studio and add the source matching the application:
+   **OpenXR Mirror Capture** or **OpenVR / SteamVR Mirror Capture**.
+5. Start the VR application normally through your headset software.
 
 Setup installs the matching OBS source, registers the layer for the current
 user, adds Start menu integration, and opens Control Center. It does **not**
@@ -99,6 +102,23 @@ manifest under `HKCU\Software\Khronos\OpenXR\1\ApiLayers\Implicit`, and
 installs the plugin under OBS's Windows discovery path at
 `%ProgramData%\obs-studio\plugins\win-openxr\bin\64bit`.
 
+## Choosing a capture source
+
+- **OpenXR Mirror Capture** reads the application's image through this
+  project's OpenXR API layer. Use it for recording-only FOV overscan, camera
+  smoothing, and OpenXR quad-layer controls. Direct3D 11 and Direct3D 12
+  applications are supported.
+- **OpenVR / SteamVR Mirror Capture** reads SteamVR's native compositor mirror
+  without injecting a legacy plugin into the application. It offers left,
+  right, and side-by-side stereo modes, percentage crop controls, automatic
+  recording-canvas fill, and reconnect-on-demand. SteamVR must be running.
+
+The OpenVR source loads the official Valve OpenVR API from the plugin folder
+only when that source is active. If it is unavailable, the OpenXR source still
+loads and works normally. OpenXR overscan, smoothing, and quad-layer controls
+cannot modify an already-composited SteamVR mirror, so those controls apply only
+to **OpenXR Mirror Capture**.
+
 ## Control Center
 
 The dark WinUI 3 Control Center provides one place to inspect layer, plugin,
@@ -140,6 +160,9 @@ pauses when another Control Center page is selected.
   the plugin itself does not require administrator privileges.
 - The OpenXR application and OBS must run on the same Windows desktop and use a
   compatible D3D11 adapter for the shared textures to open.
+- The OpenVR source also requires OBS and SteamVR to use the same GPU. Its OBS
+  interop path is D3D11 because that is the mirror interface SteamVR exposes;
+  it does not change the rendering API used by the VR application.
 - The machine-wide OpenXR runtime selected by the headset software is the normal
   default. The Control Center never selects a simulator merely by opening its
   optional testing tool, and it strips inherited `XR_RUNTIME_JSON` overrides

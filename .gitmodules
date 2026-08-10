@@ -10,3 +10,6 @@
 	path = external/OpenXR-MixedReality
 	url = https://github.com/microsoft/OpenXR-MixedReality.git
 	branch = main
+[submodule "external/OpenVR"]
+	path = external/OpenVR
+	url = https://github.com/ValveSoftware/openvr.git

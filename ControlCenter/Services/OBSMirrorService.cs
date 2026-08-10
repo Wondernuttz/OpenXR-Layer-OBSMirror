@@ -44,6 +44,7 @@ public sealed class OBSMirrorService
     public string PluginPath { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
         "obs-studio", "plugins", "win-openxr", "bin", "64bit", "win-openxr.dll");
+    public string OpenVrApiPath => Path.Combine(Path.GetDirectoryName(PluginPath)!, "openvr_api.dll");
     public string LayerLogPath { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "XR_APILAYER_NOVENDOR_OBSMirror.log");
@@ -53,6 +54,7 @@ public sealed class OBSMirrorService
     public string ReleaseLayerPath => Path.Combine(RepoRoot, "bin", "x64", "Release", "XR_APILAYER_NOVENDOR_OBSMirror.dll");
     public string ReleaseLayerManifestPath => Path.Combine(RepoRoot, "bin", "x64", "Release", LayerManifestName);
     public string ReleasePluginPath => Path.Combine(RepoRoot, "bin", "x64", "Release", "OBS_Plugin", "win-openxr.dll");
+    public string ReleaseOpenVrApiPath => Path.Combine(RepoRoot, "bin", "x64", "Release", "OBS_Plugin", "openvr_api.dll");
     public string SetupScriptPath => Path.Combine(RepoRoot, "scripts", "Setup-OBS.ps1");
     public string InstallScriptPath => Path.Combine(RepoRoot, "scripts", "Install-Layer.ps1");
     public string UninstallScriptPath => Path.Combine(RepoRoot, "scripts", "Uninstall-Layer.ps1");
@@ -72,6 +74,8 @@ public sealed class OBSMirrorService
         var layerHash = HashFile(InstalledLayerPath);
         var sourcePluginHash = HashFile(ReleasePluginPath);
         var pluginHash = HashFile(PluginPath);
+        var sourceOpenVrApiHash = HashFile(ReleaseOpenVrApiPath);
+        var openVrApiHash = HashFile(OpenVrApiPath);
         var metaExe = FindMetaXrExecutable(runtime.Path);
         var nonOpenXrVrApp = FindNonOpenXrVrApp();
 
@@ -82,7 +86,9 @@ public sealed class OBSMirrorService
                           string.Equals(sourceLayerHash, layerHash, StringComparison.OrdinalIgnoreCase),
             PluginInstalled: File.Exists(PluginPath),
             PluginCurrent: !string.IsNullOrEmpty(sourcePluginHash) &&
-                           string.Equals(sourcePluginHash, pluginHash, StringComparison.OrdinalIgnoreCase),
+                           string.Equals(sourcePluginHash, pluginHash, StringComparison.OrdinalIgnoreCase) &&
+                           !string.IsNullOrEmpty(sourceOpenVrApiHash) &&
+                           string.Equals(sourceOpenVrApiHash, openVrApiHash, StringComparison.OrdinalIgnoreCase),
             ObsRunning: IsProcessRunning("obs64"),
             MetaXrRunning: IsProcessRunning("MetaXRSimulator"),
             RuntimeName: runtimeName,
@@ -193,10 +199,14 @@ public sealed class OBSMirrorService
     private string InstallPluginOnly()
     {
         EnsureFile(ReleasePluginPath, "release OBS plugin");
+        EnsureFile(ReleaseOpenVrApiPath, "release OpenVR API runtime");
 
         var pluginSourceHash = ComputeFileHash(ReleasePluginPath);
+        var openVrApiSourceHash = ComputeFileHash(ReleaseOpenVrApiPath);
         var pluginCurrent = File.Exists(PluginPath) &&
-                            string.Equals(ComputeFileHash(PluginPath), pluginSourceHash, StringComparison.OrdinalIgnoreCase);
+                            string.Equals(ComputeFileHash(PluginPath), pluginSourceHash, StringComparison.OrdinalIgnoreCase) &&
+                            File.Exists(OpenVrApiPath) &&
+                            string.Equals(ComputeFileHash(OpenVrApiPath), openVrApiSourceHash, StringComparison.OrdinalIgnoreCase);
         if (pluginCurrent)
             return "OBS plugin already current.";
 
@@ -212,6 +222,7 @@ public sealed class OBSMirrorService
                          ?? throw new InvalidOperationException("The OBS plugin root directory could not be resolved.");
         Directory.CreateDirectory(pluginBinDirectory);
         File.Copy(ReleasePluginPath, PluginPath, overwrite: true);
+        File.Copy(ReleaseOpenVrApiPath, OpenVrApiPath, overwrite: true);
 
         var pluginDataSource = Path.Combine(RepoRoot, "OBSPlugin", "win-openxr", "data");
         if (!Directory.Exists(pluginDataSource))

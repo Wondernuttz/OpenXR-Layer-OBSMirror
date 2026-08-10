@@ -1,8 +1,8 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "0.3.0-beta.11"
+  #define MyAppVersion "0.3.0-beta.12"
 #endif
 #ifndef MyFileVersion
-  #define MyFileVersion "0.3.0.11"
+  #define MyFileVersion "0.3.0.12"
 #endif
 #ifndef PayloadRoot
   #define PayloadRoot "..\artifacts\payload"
@@ -52,6 +52,7 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 [Files]
 Source: "{#PayloadRoot}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#PayloadRoot}\bin\x64\Release\OBS_Plugin\win-openxr.dll"; DestDir: "{commonappdata}\obs-studio\plugins\win-openxr\bin\64bit"; Flags: ignoreversion restartreplace
+Source: "{#PayloadRoot}\bin\x64\Release\OBS_Plugin\openvr_api.dll"; DestDir: "{commonappdata}\obs-studio\plugins\win-openxr\bin\64bit"; Flags: ignoreversion restartreplace
 Source: "{#PayloadRoot}\OBSPlugin\win-openxr\data\*"; DestDir: "{commonappdata}\obs-studio\plugins\win-openxr\data"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
