@@ -732,18 +732,6 @@ public sealed partial class MainWindow : Window
 
     private void RenderMirrorPreview(MirrorPreviewResult result)
     {
-        if (result.Frame is null &&
-            _snapshot?.NonOpenXrVrPath.Equals("OpenVR/SteamVR", StringComparison.OrdinalIgnoreCase) == true &&
-            !string.IsNullOrWhiteSpace(_snapshot.NonOpenXrVrApp))
-        {
-            result = new MirrorPreviewResult(
-                null,
-                "SteamVR capture is ready in OBS",
-                "Open OBS to view the running OpenVR/SteamVR application. This in-app preview reads the OpenXR layer only.",
-                false,
-                false);
-        }
-
         _lastPreviewResult = result;
         UpdateVrRestartIndicator();
         PreviewStatusText.Text = result.Status;

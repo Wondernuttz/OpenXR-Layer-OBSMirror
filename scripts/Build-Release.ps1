@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '0.3.0-beta.13',
-    [string]$FileVersion = '0.3.0.13',
+    [string]$Version = '0.3.0-beta.14',
+    [string]$FileVersion = '0.3.0.14',
     [string]$OBSSourcePath = 'E:\Github\obs-studio',
     [string]$OBSInstallPath = 'C:\Program Files\obs-studio'
 )
@@ -116,10 +116,23 @@ $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
 if (-not (Test-Path -LiteralPath $iscc -PathType Leaf)) {
     throw "Inno Setup 6 compiler not found: $iscc"
 }
-& $iscc '/Qp' "/DMyAppVersion=$Version" "/DMyFileVersion=$FileVersion" `
-    "/DPayloadRoot=$payloadRoot" "/DOutputDirectory=$releaseDirectory" `
-    (Join-Path $repoRoot 'installer\OpenXR-OBSMirror.iss')
-if ($LASTEXITCODE -ne 0) { throw "Installer build failed (exit $LASTEXITCODE)." }
+$installerScript = Join-Path $repoRoot 'installer\OpenXR-OBSMirror.iss'
+$isccArguments = @(
+    '/Qp',
+    "/DMyAppVersion=$Version",
+    "/DMyFileVersion=$FileVersion",
+    "/DPayloadRoot=`"$payloadRoot`"",
+    "/DOutputDirectory=`"$releaseDirectory`"",
+    "`"$installerScript`""
+)
+# ISCC is a Windows application, so PowerShell can return from a direct native
+# invocation while the compiler is still writing the installer. Waiting on the
+# process prevents the ZIP/checksum phase from racing a locked partial EXE.
+$isccProcess = Start-Process -FilePath $iscc -ArgumentList $isccArguments `
+    -NoNewWindow -Wait -PassThru
+if ($isccProcess.ExitCode -ne 0) {
+    throw "Installer build failed (exit $($isccProcess.ExitCode))."
+}
 
 $zipPath = Join-Path $releaseDirectory "OpenXR-OBSMirror-$Version-Portable.zip"
 Compress-Archive -LiteralPath $payloadRoot -DestinationPath $zipPath -CompressionLevel Optimal
