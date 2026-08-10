@@ -2,6 +2,7 @@
 param(
     [string]$LayerBuildDirectory,
     [string]$PluginBinary,
+    [string]$OpenVRApiBinary,
     [string]$LayerInstallDirectory = (Join-Path $env:LOCALAPPDATA 'OpenXR-OBSMirror'),
     [string]$OBSPluginDirectory = (Join-Path $env:ProgramData 'obs-studio\plugins\win-openxr'),
     [switch]$AllowRunningOBS,
@@ -38,6 +39,9 @@ if (-not $LayerBuildDirectory) {
 if (-not $PluginBinary) {
     $PluginBinary = Join-Path $repoRoot 'bin\x64\Release\OBS_Plugin\win-openxr.dll'
 }
+if (-not $OpenVRApiBinary) {
+    $OpenVRApiBinary = Join-Path (Split-Path -Parent $PluginBinary) 'openvr_api.dll'
+}
 
 $runningOBS = Get-Process -Name obs64 -ErrorAction SilentlyContinue
 if ($runningOBS -and -not $AllowRunningOBS) {
@@ -46,7 +50,7 @@ if ($runningOBS -and -not $AllowRunningOBS) {
 $layerDll = Join-Path $LayerBuildDirectory 'XR_APILAYER_NOVENDOR_OBSMirror.dll'
 $layerManifest = Join-Path $LayerBuildDirectory 'XR_APILAYER_NOVENDOR_OBSMirror.json'
 $requiredPaths = @($layerDll, $layerManifest)
-if (-not $SkipPluginInstall) { $requiredPaths += $PluginBinary }
+if (-not $SkipPluginInstall) { $requiredPaths += @($PluginBinary, $OpenVRApiBinary) }
 foreach ($requiredPath in $requiredPaths) {
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
         throw "Required build artifact not found: $requiredPath"
@@ -87,16 +91,21 @@ foreach ($scriptName in @('Install-Layer.ps1', 'Uninstall-Layer.ps1')) {
 }
 
 $pluginDestination = Join-Path $pluginBinDirectory 'win-openxr.dll'
+$openVrApiDestination = Join-Path $pluginBinDirectory 'openvr_api.dll'
 if (-not $SkipPluginInstall) {
     $pluginSourceHash = Get-Sha256 -LiteralPath $PluginBinary
+    $openVrApiSourceHash = Get-Sha256 -LiteralPath $OpenVRApiBinary
     $pluginAlreadyCurrent = (Test-Path -LiteralPath $pluginDestination -PathType Leaf) -and
-        ((Get-Sha256 -LiteralPath $pluginDestination) -eq $pluginSourceHash)
+        ((Get-Sha256 -LiteralPath $pluginDestination) -eq $pluginSourceHash) -and
+        (Test-Path -LiteralPath $openVrApiDestination -PathType Leaf) -and
+        ((Get-Sha256 -LiteralPath $openVrApiDestination) -eq $openVrApiSourceHash)
     if ($runningOBS -and -not $pluginAlreadyCurrent) {
         Write-Warning 'OBS is running; close it before installing the updated plugin binary.'
     } elseif ($pluginAlreadyCurrent) {
         Write-Verbose "OBS plugin is already current; skipping the in-use DLL copy."
     } else {
         Copy-Item -LiteralPath $PluginBinary -Destination $pluginDestination -Force
+        Copy-Item -LiteralPath $OpenVRApiBinary -Destination $openVrApiDestination -Force
         Copy-Item -Path (Join-Path $repoRoot 'OBSPlugin\win-openxr\data\*') `
             -Destination $pluginDataDirectory -Recurse -Force
     }
@@ -112,5 +121,9 @@ if (-not $SkipPluginInstall) {
     OBSPlugin = if (Test-Path -LiteralPath $pluginDestination -PathType Leaf) { $pluginDestination } else { $null }
     PluginSHA256 = if (Test-Path -LiteralPath $pluginDestination -PathType Leaf) {
         Get-Sha256 -LiteralPath $pluginDestination
+    } else { $null }
+    OpenVRAPI = if (Test-Path -LiteralPath $openVrApiDestination -PathType Leaf) { $openVrApiDestination } else { $null }
+    OpenVRAPISHA256 = if (Test-Path -LiteralPath $openVrApiDestination -PathType Leaf) {
+        Get-Sha256 -LiteralPath $openVrApiDestination
     } else { $null }
 }

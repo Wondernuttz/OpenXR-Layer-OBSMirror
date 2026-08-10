@@ -25,6 +25,7 @@
 
 #include "dxgi_format_info.h"
 #include "obs_mirror_ipc.h"
+#include "openvr-capture.h"
 
 #pragma comment(lib, "d3d11.lib")
 
@@ -63,7 +64,7 @@ using obs_mirror_ipc::kMirrorTextureCount;
 
 // Logged at load and published through the shared diagnostics block so the
 // layer log records which plugin build it talked to.
-static const char *const kPluginVersion = "0.3.0-beta.11";
+static const char *const kPluginVersion = "0.3.0-beta.12";
 
 struct win_openxrmirror {
 	obs_source_t *source;
@@ -1092,6 +1093,12 @@ bool obs_module_load(void)
 	info.video_tick = win_openxrmirror_tick;
 	info.get_properties = win_openxrmirror_properties;
 	obs_register_source(&info);
+	register_openvr_capture_source();
 	load_presets();
 	return true;
+}
+
+void obs_module_unload(void)
+{
+	shutdown_openvr_capture_runtime();
 }

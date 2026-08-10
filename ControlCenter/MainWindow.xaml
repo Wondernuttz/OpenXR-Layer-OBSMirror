@@ -45,7 +45,7 @@
                     </Grid.RowDefinitions>
                     <StackPanel Spacing="4" Margin="10,0,10,20">
                         <TextBlock Text="CAPTURE TOOLS" Style="{StaticResource EyebrowStyle}" />
-                        <TextBlock Text="OpenXR + OBS" FontSize="18" FontWeight="SemiBold" />
+                        <TextBlock Text="OpenXR + OpenVR + OBS" FontSize="18" FontWeight="SemiBold" />
                     </StackPanel>
                     <StackPanel Grid.Row="1">
                         <Button x:Name="DashboardNavButton" Tag="dashboard" Click="SidebarNav_Click" Style="{StaticResource SidebarButtonStyle}" Background="#263A8E96" Foreground="White">
@@ -100,7 +100,7 @@
                                 <StackPanel Spacing="5">
                                     <TextBlock Text="SYSTEM OVERVIEW" Style="{StaticResource EyebrowStyle}" />
                                     <TextBlock Text="Ready for the next capture." Style="{StaticResource SectionTitleStyle}" />
-                                    <TextBlock Text="Live status for the OpenXR layer, OBS source, runtime, and recording overscan." Style="{StaticResource MutedTextStyle}" />
+                                    <TextBlock Text="Live status for the OpenXR layer, OpenXR/OpenVR OBS sources, runtime, and recording overscan." Style="{StaticResource MutedTextStyle}" />
                                 </StackPanel>
                                 <Button Grid.Column="1" Click="Refresh_Click" Style="{StaticResource SecondaryButtonStyle}" VerticalAlignment="Bottom">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -548,6 +548,7 @@
                                         <TextBlock Text="OBS PLUGIN" Style="{StaticResource EyebrowStyle}" />
                                         <TextBlock x:Name="InstallPluginStatusText" FontSize="22" FontWeight="SemiBold" Text="Checking…" />
                                         <TextBlock x:Name="InstallPluginPathText" Style="{StaticResource MutedTextStyle}" FontFamily="Cascadia Mono" FontSize="12" TextWrapping="Wrap" />
+                                        <TextBlock Text="Installs both OpenXR Mirror Capture and OpenVR / SteamVR Mirror Capture sources." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
                                         <Button Click="LaunchObs_Click" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Content="Open OBS" />
                                     </StackPanel>
                                 </Border>

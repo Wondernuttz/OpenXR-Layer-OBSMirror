@@ -13,13 +13,16 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
+$openVrRoot = Join-Path $repoRoot 'external\OpenVR'
+$openVrHeader = Join-Path $openVrRoot 'headers\openvr.h'
+$openVrApi = Join-Path $openVrRoot 'bin\win64\openvr_api.dll'
 $obsSource = [IO.Path]::GetFullPath($OBSSourcePath)
 $obsDll = Join-Path $OBSInstallPath 'bin\64bit\obs.dll'
 $obsExe = Join-Path $OBSInstallPath 'bin\64bit\obs64.exe'
 $obsConfig = Join-Path $obsSource 'libobs\obs-config.h'
 $obsConfigTemplate = Join-Path $obsSource 'libobs\obsconfig.h.in'
 
-foreach ($requiredPath in @($obsDll, $obsExe, $obsConfig, $obsConfigTemplate)) {
+foreach ($requiredPath in @($obsDll, $obsExe, $obsConfig, $obsConfigTemplate, $openVrHeader, $openVrApi)) {
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
         throw "Required OBS file not found: $requiredPath"
     }
@@ -69,7 +72,8 @@ if ($LASTEXITCODE -ne 0) { throw "Failed to create OBS import library (exit $LAS
 
 $pluginSource = Join-Path $repoRoot 'OBSPlugin\win-openxr'
 & cmake -S $pluginSource -B $buildDirectory -G 'Visual Studio 17 2022' -A x64 `
-    "-DOBS_IMPORT_LIBRARY=$importLibrary" "-DOBS_SOURCE_DIR=$obsSource"
+    "-DOBS_IMPORT_LIBRARY=$importLibrary" "-DOBS_SOURCE_DIR=$obsSource" `
+    "-DOPENVR_ROOT=$openVrRoot"
 if ($LASTEXITCODE -ne 0) { throw "CMake configure failed (exit $LASTEXITCODE)." }
 & cmake --build $buildDirectory --config $Configuration --parallel
 if ($LASTEXITCODE -ne 0) { throw "OBS plugin build failed (exit $LASTEXITCODE)." }
@@ -83,6 +87,8 @@ $outputDirectory = Join-Path $repoRoot "bin\x64\$Configuration\OBS_Plugin"
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
 $outputPlugin = Join-Path $outputDirectory 'win-openxr.dll'
 Copy-Item -LiteralPath $builtPlugin -Destination $outputPlugin -Force
+$outputOpenVrApi = Join-Path $outputDirectory 'openvr_api.dll'
+Copy-Item -LiteralPath $openVrApi -Destination $outputOpenVrApi -Force
 
 $builtPdb = Join-Path $buildDirectory "$Configuration\win-openxr.pdb"
 if (Test-Path -LiteralPath $builtPdb -PathType Leaf) {
@@ -92,5 +98,6 @@ if (Test-Path -LiteralPath $builtPdb -PathType Leaf) {
 [pscustomobject]@{
     OBSVersion = $installedVersion.ToString()
     Plugin = $outputPlugin
+    OpenVRAPI = $outputOpenVrApi
     SHA256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $outputPlugin).Hash
 }

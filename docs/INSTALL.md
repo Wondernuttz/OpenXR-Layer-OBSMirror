@@ -1,7 +1,8 @@
-# OpenXR OBS Mirror installation
+# OpenXR + OpenVR OBS Mirror installation
 
-OpenXR OBS Mirror captures the application-rendered OpenXR view directly in
-OBS Studio while preserving the headset's normal runtime, view, and tracking.
+OpenXR OBS Mirror captures an application-rendered OpenXR view or SteamVR's
+native OpenVR compositor mirror directly in OBS Studio while preserving the
+headset's normal runtime, view, and tracking.
 
 ## Recommended: Windows installer
 
@@ -12,8 +13,9 @@ OBS Studio while preserving the headset's normal runtime, view, and tracking.
 4. Leave **Open Control Center** selected and finish setup.
 5. Confirm that **Layer**, **OBS source**, and **Runtime** are green in Control
    Center.
-6. Open OBS Studio, add an **OpenXR Mirror Capture** source, then start the
-   OpenXR application normally through your headset software.
+6. Open OBS Studio and add **OpenXR Mirror Capture** for an OpenXR application,
+   or **OpenVR / SteamVR Mirror Capture** for SteamVR/OpenVR capture.
+7. Start the VR application normally through your headset software.
 
 The installer does not select a simulator or replace the system OpenXR
 runtime. If Control Center reports an inherited simulator override, use
@@ -27,7 +29,8 @@ runtime. If Control Center reports an inherited simulator override, use
 4. Open **Installation** and choose **Install / update**.
    If the OBS plugin needs to be installed or replaced, approve the Windows
    administrator prompt. Layer-only updates remain per-user and do not elevate.
-5. Restart OBS Studio and add an **OpenXR Mirror Capture** source.
+5. Restart OBS Studio and add **OpenXR Mirror Capture** or
+   **OpenVR / SteamVR Mirror Capture**, as appropriate.
 
 The portable Control Center is self-contained; a separate .NET installation is
 not required. Its installation actions run in the app itself and do not require
@@ -46,6 +49,25 @@ layer, OBS source, scripts, and app runtime.
   the recording without changing the headset.
 - **Dashboard preview** shows the layer's shared mirror image in the Control
   Center without requiring OBS to be open.
+
+These recording-only controls belong to the OpenXR layer and therefore apply
+only to **OpenXR Mirror Capture**. The OpenVR source receives an already
+composited SteamVR image; its source properties instead provide eye selection,
+percentage crops, automatic recording-canvas fill, and a reconnect button.
+
+## OpenVR / SteamVR capture
+
+Start SteamVR, then make the OBS source visible. The source initializes OpenVR
+as a background client and requests SteamVR's native D3D11 compositor mirror.
+It does not register an OpenVR application layer or change the active OpenXR
+runtime. Select left eye, right eye, or both eyes side by side in source
+properties.
+
+OBS and SteamVR must use the same GPU. If the source is blank, choose
+**Reconnect to SteamVR** in its properties and inspect the OBS log for an
+OpenVR initialization or GPU-mismatch message. The packaged `openvr_api.dll`
+must remain beside `win-openxr.dll`; reinstalling the OBS plugin restores the
+matching file.
 
 Start with modest overscan such as 115% horizontal and 108% vertical. The GPU
 pixel cost scales approximately with the product of those values.
@@ -82,6 +104,8 @@ registration; both switches always show the same live state.
   source properties and compare the OBS and producer adapter identities in the
   uploaded report.
 - If OBS was open during an update, close it and run **Install / update** again.
+- If only the OpenVR source is unavailable, verify SteamVR is running and that
+  `openvr_api.dll` exists beside the installed `win-openxr.dll`.
 - If the wrong runtime is listed, use **Use headset runtime** and relaunch the
   OpenXR application.
 - Check the live layer log on the Control Center **Installation** page for the
