@@ -378,13 +378,15 @@ public sealed class OBSMirrorService
     }
 
     /// <summary>
-    /// A running VR application that reaches its runtime without the OpenXR
-    /// loader, or empty strings when there is none.
+    /// A running VR application that reaches its runtime without an observable
+    /// OpenXR path, or empty strings when there is none.
     ///
-    /// API layers are inserted by openxr_loader.dll and by nothing else, so a
-    /// title driving the headset through LibOVR or OpenVR can never load the
-    /// capture layer however it is installed. Reporting the process by name
-    /// turns an endless "waiting for an OpenXR app" into an actionable fact.
+    /// Most applications load openxr_loader.dll dynamically, but OpenComposite
+    /// statically links the Khronos loader into openvr_api.dll. In that case the
+    /// active API layer, runtime, or OpenComposite companion module is the proof
+    /// that the process is using OpenXR. Reporting a genuine LibOVR or OpenVR
+    /// process by name turns an endless "waiting for an OpenXR app" into an
+    /// actionable fact.
     /// Returns nothing while an OpenXR application is running, because then
     /// the loader path is already in use and any second VR process is noise.
     /// </summary>
@@ -414,7 +416,7 @@ public sealed class OBSMirrorService
 
                 scanned++;
                 var usage = ReadVrModuleUsage(process);
-                if (usage.OpenXrLoader)
+                if (usage.OpenXrPath)
                 {
                     openXrApplicationRunning = true;
                     continue;
@@ -453,7 +455,7 @@ public sealed class OBSMirrorService
 
     private static VrModuleUsage ReadVrModuleUsage(Process process)
     {
-        var openXrLoader = false;
+        var openXrPath = false;
         var oculusPath = false;
         var openVrApi = false;
         var openVrClient = false;
@@ -464,13 +466,19 @@ public sealed class OBSMirrorService
                 var name = module.ModuleName;
                 if (string.IsNullOrEmpty(name))
                     continue;
-                if (name.StartsWith("openxr_loader", StringComparison.OrdinalIgnoreCase))
-                    openXrLoader = true;
-                // Virtual Desktop ships its LibOVR and runtime copies under
-                // prefixed names, so these are substring matches on purpose.
-                else if (name.Contains("libovr", StringComparison.OrdinalIgnoreCase) ||
-                         name.Contains("openxr-oculus-compatibility", StringComparison.OrdinalIgnoreCase) ||
-                         name.Contains("virtualdesktop-openxr", StringComparison.OrdinalIgnoreCase))
+                if (name.StartsWith("openxr_loader", StringComparison.OrdinalIgnoreCase) ||
+                    name.StartsWith("XR_APILAYER_", StringComparison.OrdinalIgnoreCase) ||
+                    name.Contains("virtualdesktop-openxr", StringComparison.OrdinalIgnoreCase) ||
+                    name.Contains("openxr-oculus-compatibility", StringComparison.OrdinalIgnoreCase) ||
+                    name.StartsWith("OpenCompositeInput", StringComparison.OrdinalIgnoreCase) ||
+                    name.StartsWith("OpenComposite", StringComparison.OrdinalIgnoreCase))
+                {
+                    // OCU and some other OpenComposite builds embed the OpenXR
+                    // loader, so no openxr_loader.dll appears in the module list.
+                    openXrPath = true;
+                }
+                // A plain LibOVR module still identifies the direct Oculus API.
+                else if (name.Contains("libovr", StringComparison.OrdinalIgnoreCase))
                     oculusPath = true;
                 else if (name.StartsWith("openvr_api", StringComparison.OrdinalIgnoreCase))
                     openVrApi = true;
@@ -483,7 +491,7 @@ public sealed class OBSMirrorService
             // Reading another process's module list is denied for elevated and
             // protected processes; those simply cannot be classified.
         }
-        return new VrModuleUsage(openXrLoader, oculusPath, openVrApi, openVrClient);
+        return new VrModuleUsage(openXrPath, oculusPath, openVrApi, openVrClient);
     }
 
     private static string ClassifyVrPath(VrModuleUsage usage)
@@ -1087,5 +1095,5 @@ public sealed class OBSMirrorService
 
     private sealed record RuntimeSelection(string Path, string Source, bool IsOverride);
 
-    private sealed record VrModuleUsage(bool OpenXrLoader, bool OculusPath, bool OpenVrApi, bool OpenVrClient);
+    private sealed record VrModuleUsage(bool OpenXrPath, bool OculusPath, bool OpenVrApi, bool OpenVrClient);
 }
